@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 // Usage: your_program.sh <command> <arg1> <arg2> ...
@@ -29,7 +30,7 @@ func main() {
 
 	case "cat-file":
 		if len(os.Args) < 4 {
-			fmt.Fprintf(os.Stderr, "MIssing SHA in git cat-file\n")
+			fmt.Fprintf(os.Stderr, "Missing SHA in git cat-file\n")
 			os.Exit(1)
 		}
 		switch verb := os.Args[2]; verb {
@@ -46,6 +47,26 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Unknown subcommand for cat-file %q\n", command)
 			os.Exit(1)
 		}
+
+	case "hash-object":
+		if len(os.Args) < 3 {
+			fmt.Fprintf(os.Stderr, "Missing filename or verb in git hash-object\n")
+			os.Exit(1)
+		}
+		writeToFile := strings.TrimSpace(os.Args[2]) == "-w"
+		var path string
+		if writeToFile {
+			path = os.Args[3]
+		} else {
+			path = os.Args[2]
+		}
+
+		hash, err := WriteBlob(path, writeToFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Can't hash object\n")
+			os.Exit(1)
+		}
+		fmt.Printf("%x\n", hash)
 
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command %s\n", command)

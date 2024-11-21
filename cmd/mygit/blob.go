@@ -1,15 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"compress/zlib"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path"
 )
 
 var (
-	InvalidBlob     = errors.New("Invalid size blob, cannot parse blob")
 	InvalidBlobSize = errors.New("Invalid blob, can't parse blob")
 )
 
@@ -60,12 +61,58 @@ func ReadBlob(dir, sha string) (*Blob, error) {
 		pow *= 10
 	}
 
-	if size == 0 {
-		return nil, InvalidBlob
-	}
-
 	return &Blob{
 		Size:    size,
 		Content: content,
 	}, nil
+}
+
+func WriteBlob(path string, writeToFile bool) (empty [20]byte, _ error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return empty, err
+	}
+	defer file.Close()
+
+	buf := bytes.Buffer{}
+	size, err := buf.ReadFrom(file)
+	if err != nil {
+		return empty, err
+	}
+	hash, content := HashContent(BlobHeader, size, buf.Bytes())
+
+	if writeToFile {
+		err = WriteObjectToFile(hash, content)
+		if err != nil {
+			return empty, err
+		}
+	}
+
+	return hash, nil
+}
+
+func WriteObjectToFile(hash [20]byte, content []byte) error {
+	hashStr := fmt.Sprintf("%x", hash)
+	dir, sha := hashStr[:2], hashStr[2:]
+
+	objPath := path.Join(".git/objects", dir)
+	err := os.Mkdir(objPath, 0o755) // rxwr-x---
+	if err != nil && !os.IsExist(err) {
+		return err
+	}
+
+	objPath = path.Join(objPath, sha)
+
+	file, err := os.OpenFile(objPath, os.O_CREATE|os.O_WRONLY, 0o644) // rw-r--r--
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	compressedFile := zlib.NewWriter(file)
+	defer compressedFile.Close()
+
+	_, err = compressedFile.Write(content)
+
+	return err
 }
