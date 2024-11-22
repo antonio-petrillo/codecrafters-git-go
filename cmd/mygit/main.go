@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/codecrafters-io/git-starter-go/git"
 	"os"
-	"strings"
 )
 
 // Usage: your_program.sh <command> <arg1> <arg2> ...
@@ -17,56 +17,42 @@ func main() {
 
 	switch command := os.Args[1]; command {
 	case "init":
-		for _, dir := range []string{".git", ".git/objects", ".git/refs"} {
-			if err := os.MkdirAll(dir, 0755); err != nil {
-				fmt.Fprintf(os.Stderr, "Error creating directory: %s\n", err)
-			}
-		}
-		headFileContents := []byte("ref: refs/heads/main\n")
-		if err := os.WriteFile(".git/HEAD", headFileContents, 0644); err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing file: %s\n", err)
-		}
-		fmt.Println("Initialized git directory")
-
-	case "cat-file":
-		if len(os.Args) < 4 {
-			fmt.Fprintf(os.Stderr, "Missing SHA in git cat-file\n")
-			os.Exit(1)
-		}
-		switch verb := os.Args[2]; verb {
-		case "-p":
-			shaArg := os.Args[3]
-			dir, sha := shaArg[:2], shaArg[2:]
-			blob, err := ReadBlob(dir, sha)
+		{
+			err := git.Init()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Can't read blob file %q\n", shaArg)
+				fmt.Fprintf(os.Stderr, "Error initializing repository: %s\n", err)
 				os.Exit(1)
 			}
-			fmt.Print(string(blob.Content))
-		default:
-			fmt.Fprintf(os.Stderr, "Unknown subcommand for cat-file %q\n", command)
-			os.Exit(1)
+		}
+
+	case "cat-file":
+		{
+			err := git.CatFile(os.Args[2:])
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Fatal error in git cat-file: %q\n", err)
+				os.Exit(1)
+			}
+
 		}
 
 	case "hash-object":
-		if len(os.Args) < 3 {
-			fmt.Fprintf(os.Stderr, "Missing filename or verb in git hash-object\n")
-			os.Exit(1)
-		}
-		writeToFile := strings.TrimSpace(os.Args[2]) == "-w"
-		var path string
-		if writeToFile {
-			path = os.Args[3]
-		} else {
-			path = os.Args[2]
+		{
+			err := git.HashObject(os.Args[2:])
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Fatal error in git hash-object: %q\n", err)
+				os.Exit(1)
+			}
 		}
 
-		hash, err := WriteBlob(path, writeToFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Can't hash object\n")
-			os.Exit(1)
+	case "ls-tree":
+		{
+			err := git.ListTree(os.Args[2:])
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Fatal error in git ls-tree: %q\n", err)
+				os.Exit(1)
+			}
+
 		}
-		fmt.Printf("%x\n", hash)
 
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command %s\n", command)
