@@ -11,14 +11,21 @@ import (
 )
 
 const (
-	BlobType string = "blob"
-	TreeType string = "tree"
+	BlobType   string = "blob"
+	TreeType   string = "tree"
+	CommitType string = "commit"
 )
 
 var (
 	ErrInvalidObj = errors.New("Invalid git object")
 	ErrUnknownObj = errors.New("Unknown git object")
 )
+
+func WriteObjectContent(size int, content []byte) (empty [20]byte, _ error) {
+	hash, hashed := HashContent(CommitType, int64(size), content)
+	err := WriteObjectToFile(fmt.Sprintf("%x", hash), hashed)
+	return hash, err
+}
 
 func WriteObject(path string, writeToFile bool) (empty [20]byte, _ error) {
 	obj, err := os.Open(path)
@@ -35,7 +42,7 @@ func WriteObject(path string, writeToFile bool) (empty [20]byte, _ error) {
 	hash, content := HashContent(BlobType, size, buf.Bytes())
 
 	if writeToFile {
-		err = WriteObjectToFile(hash, content)
+		err = WriteObjectToFile(fmt.Sprintf("%x", hash), content)
 		if err != nil {
 			return empty, err
 		}
@@ -44,9 +51,8 @@ func WriteObject(path string, writeToFile bool) (empty [20]byte, _ error) {
 	return hash, nil
 }
 
-func WriteObjectToFile(hash [20]byte, content []byte) error {
-	hashStr := fmt.Sprintf("%x", hash)
-	dir, sha := hashStr[:2], hashStr[2:]
+func WriteObjectToFile(hash string, content []byte) error {
+	dir, sha := hash[:2], hash[2:]
 
 	objPath := path.Join(".git/objects", dir)
 	err := os.Mkdir(objPath, 0o755) // rxwr-x---
@@ -120,7 +126,7 @@ func WriteTreeObject(dir string) (empty [20]byte, _ error) {
 	}
 
 	sha, byteContent := HashContent(TreeType, int64(content.Len()), content.Bytes())
-	err = WriteObjectToFile(sha, byteContent)
+	err = WriteObjectToFile(fmt.Sprintf("%x", sha), byteContent)
 	if err != nil {
 		return empty, err
 	}

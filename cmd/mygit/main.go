@@ -17,49 +17,49 @@ func main() {
 
 	switch command := os.Args[1]; command {
 	case "init":
-		{
-			err := git.Init()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error initializing repository: %s\n", err)
-				os.Exit(1)
-			}
+		err := git.Init()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error initializing repository: %s\n", err)
+			os.Exit(1)
 		}
 
 	case "cat-file":
-		{
-			err := git.CatFile(os.Args[2:])
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Fatal error in git cat-file: %q\n", err)
-				os.Exit(1)
-			}
-
+		err := git.CatFile(os.Args[2:])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Fatal error in git cat-file: %q\n", err)
+			os.Exit(1)
 		}
 
 	case "hash-object":
-		{
-			err := git.HashObject(os.Args[2:])
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Fatal error in git hash-object: %q\n", err)
-				os.Exit(1)
-			}
+		err := git.HashObject(os.Args[2:])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Fatal error in git hash-object: %q\n", err)
+			os.Exit(1)
 		}
 
 	case "ls-tree":
-		{
-			err := git.ListTree(os.Args[2:])
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Fatal error in git ls-tree: %q\n", err)
-				os.Exit(1)
-			}
+		err := git.ListTree(os.Args[2:])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Fatal error in git ls-tree: %q\n", err)
+			os.Exit(1)
 		}
 
 	case "write-tree":
-		{
-			err := git.WriteTree()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Fatal error in git write-tree: %q\n", err)
-				os.Exit(1)
-			}
+		err := git.WriteTree()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Fatal error in git write-tree: %q\n", err)
+			os.Exit(1)
+		}
+
+	case "commit-tree":
+		if len(os.Args) < 3 {
+			fmt.Fprintf(os.Stderr, "Fatal error in git commit-tree: Missing SHA param\n")
+			os.Exit(1)
+		}
+		err := git.CommitTree(os.Args[2], os.Args[3:])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Fatal error in git commit-tree: %q\n", err)
+			os.Exit(1)
 		}
 
 	default:

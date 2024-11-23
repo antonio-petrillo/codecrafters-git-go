@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 var (
@@ -168,5 +169,47 @@ func WriteTree() error {
 		return err
 	}
 	fmt.Printf("%x\n", sha)
+	return nil
+}
+
+func detectParam(args []string, target string) (string, bool) {
+	size := len(args)
+	for i, arg := range args {
+		if arg == target && i != size-1 {
+			return args[i+1], true
+		}
+	}
+	return "", false
+}
+
+func CommitTree(hash string, args []string) error {
+	parent, hasParent := detectParam(args, "-p")
+	msg, hasMsg := detectParam(args, "-m")
+
+	curr := time.Now().Local()
+
+	timestamp := fmt.Sprintf("%d %s", curr.Unix(), curr.Format("-0700"))
+
+	buf := bytes.Buffer{}
+
+	buf.WriteString(fmt.Sprintf("tree %s\n", hash))
+	if hasParent {
+		buf.WriteString(fmt.Sprintf("parent %s\n", parent))
+	}
+	buf.WriteString(fmt.Sprintf("author Antonio Petrillo <myfake@mail.com> %s\n", timestamp))
+	buf.WriteString(fmt.Sprintf("committer Antonio Petrillo <myfake@mail.com> %s\n", timestamp))
+	buf.WriteString("\n")
+	if hasMsg {
+		buf.WriteString(msg)
+	}
+	buf.WriteString("\n")
+
+	sha, err := WriteObjectContent(buf.Len(), buf.Bytes())
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%x\n", sha)
+
 	return nil
 }
