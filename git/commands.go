@@ -156,3 +156,17 @@ func printTree(content []byte, nameOnly bool) error {
 	fmt.Printf("%s\n", strings.Join(out, "\n"))
 	return nil
 }
+
+func WriteTree() error {
+	pwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	sha, err := WriteTreeObject(pwd)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%x\n", sha)
+	return nil
+}

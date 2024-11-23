@@ -86,3 +86,44 @@ func ReadObject(sha string) ([]byte, error) {
 
 	return io.ReadAll(zReader)
 }
+
+func WriteTreeObject(dir string) (empty [20]byte, _ error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return empty, err
+	}
+
+	content := bytes.Buffer{}
+	for _, entry := range entries {
+		var sha [20]byte
+
+		if entry.Name() == ".git" {
+			continue
+		}
+		if entry.IsDir() { // tree
+			// recursion
+			content.WriteString("40000 ")
+			sha, err = WriteTreeObject(path.Join(dir, entry.Name()))
+		} else { // object
+			content.WriteString("100644 ")
+			// write blob
+			sha, err = WriteObject(path.Join(dir, entry.Name()), true)
+		}
+
+		if err != nil {
+			return empty, err
+		}
+
+		content.WriteString(entry.Name())
+		content.WriteByte(0) // append \0
+		content.Write(sha[:])
+	}
+
+	sha, byteContent := HashContent(TreeType, int64(content.Len()), content.Bytes())
+	err = WriteObjectToFile(sha, byteContent)
+	if err != nil {
+		return empty, err
+	}
+
+	return sha, nil
+}

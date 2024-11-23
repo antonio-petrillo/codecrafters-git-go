@@ -51,7 +51,15 @@ func main() {
 				fmt.Fprintf(os.Stderr, "Fatal error in git ls-tree: %q\n", err)
 				os.Exit(1)
 			}
+		}
 
+	case "write-tree":
+		{
+			err := git.WriteTree()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Fatal error in git write-tree: %q\n", err)
+				os.Exit(1)
+			}
 		}
 
 	default:
