@@ -62,6 +62,9 @@ func main() {
 			os.Exit(1)
 		}
 
+	case "clone":
+		panic("Clone still not implemented")
+
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command %s\n", command)
 		os.Exit(1)

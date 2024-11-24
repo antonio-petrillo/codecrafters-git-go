@@ -61,8 +61,15 @@ func HashObject(args []string) error {
 	} else if len(args) == 2 && args[1] == "-w" {
 		writeToFile = true
 	}
+	_ = writeToFile
 
-	hash, err := WriteObject(path, writeToFile)
+	var hash [20]byte
+	var err error
+	if writeToFile {
+		hash, err = WriteBlob(path)
+	} else {
+		hash, err = GetBlobSha(path)
+	}
 	if err != nil {
 		return err
 	}
@@ -204,7 +211,7 @@ func CommitTree(hash string, args []string) error {
 	}
 	buf.WriteString("\n")
 
-	sha, err := WriteObjectContent(buf.Len(), buf.Bytes())
+	sha, err := WriteCommit(buf.Bytes())
 	if err != nil {
 		return err
 	}
