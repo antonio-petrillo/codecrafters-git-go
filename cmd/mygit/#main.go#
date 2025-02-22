@@ -20,5 +20,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Unknow command %q", command)
 		os.Exit(1)
 	}
+
 	handler(command, args)
 }
