@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	Init    = "init"
-	CatFile = "cat-file"
+	InitCmd       = "init"
+	CatFileCmd    = "cat-file"
+	HashObjectCmd = "hash-object"
 )
 
 type Handler func(name string, args []string) error
@@ -21,8 +22,9 @@ var (
 )
 
 var availableCommands = Commands{
-	Init: HandlerInit,
-	CatFile: HandlerCatFile,
+	InitCmd:       HandlerInit,
+	CatFileCmd:    HandlerCatFile,
+	HashObjectCmd: HandlerHashObject,
 }
 
 func GetCommand(cmd string) (Handler, error) {
@@ -34,7 +36,7 @@ func GetCommand(cmd string) (Handler, error) {
 }
 
 func HandlerInit(name string, args []string) error {
-	if name != Init {
+	if name != InitCmd {
 		return MismatchedError
 	}
 
@@ -58,7 +60,7 @@ func HandlerInit(name string, args []string) error {
 }
 
 func HandlerCatFile(name string, args []string) error {
-	if name != CatFile {
+	if name != CatFileCmd {
 		return MismatchedError
 	}
 
@@ -69,7 +71,7 @@ func HandlerCatFile(name string, args []string) error {
 	switch verb := args[0]; verb {
 	case "-p":
 
-		gitObj, err := ReadFromDisk(args[1])
+		gitObj, err := ReadGitObject(args[1])
 		if err != nil {
 			return err
 		}
@@ -78,6 +80,44 @@ func HandlerCatFile(name string, args []string) error {
 	default:
 		return InvalidArgsError
 	}
+
+	return nil
+}
+
+func HandlerHashObject(name string, args []string) error {
+	if name != HashObjectCmd {
+		return MismatchedError
+	}
+
+	if l := len(args); l < 1 || l > 2 {
+		return InvalidArgsError
+	}
+	writeToFile := false
+	objIndex := 0
+
+	switch verb := args[0]; verb {
+	case "-w":
+		objIndex = 1
+		writeToFile = true
+
+	default:
+		// nothing special for now
+	}
+
+	blob, err := ReadBlobFromFile(args[objIndex])
+	if err != nil {
+		return err
+	}
+
+	hash, content := HashObject(blob)
+	strHash := fmt.Sprintf("%x", hash)
+	if writeToFile {
+		err = WriteContent(strHash, content)
+		if err != nil {
+			return err
+		}
+	}
+	fmt.Printf("%s\n", strHash)
 
 	return nil
 }
