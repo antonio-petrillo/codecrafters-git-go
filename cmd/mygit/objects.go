@@ -15,6 +15,7 @@ type ObjectKind string
 
 const (
 	BlobKind ObjectKind = "blob"
+	TreeKind ObjectKind = "tree"
 )
 
 var (
@@ -54,6 +55,12 @@ func ReadGitObject(sha string) (GitObject, error) {
 
 	if bytes.HasPrefix(header, []byte(BlobKind)) {
 		return &Blob{
+			content: body,
+		}, nil
+	}
+
+	if bytes.HasPrefix(header, []byte(TreeKind)) {
+		return &Tree{
 			content: body,
 		}, nil
 	}

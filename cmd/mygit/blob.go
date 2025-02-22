@@ -2,7 +2,12 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"os"
+)
+
+var (
+	InvalidBlob = errors.New("File at path cannot be parsed into a blob.")
 )
 
 type Blob struct {
@@ -26,6 +31,15 @@ func ReadBlobFromFile(path string) (*Blob, error) {
 		return nil, err
 	}
 	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	if stat.IsDir() {
+		return nil, InvalidBlob
+	}
 
 	buf := bytes.Buffer{}
 

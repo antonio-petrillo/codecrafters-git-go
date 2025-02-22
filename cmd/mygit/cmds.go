@@ -10,6 +10,7 @@ const (
 	InitCmd       = "init"
 	CatFileCmd    = "cat-file"
 	HashObjectCmd = "hash-object"
+	LsTreeCmd     = "ls-tree"
 )
 
 type Handler func(name string, args []string) error
@@ -25,6 +26,7 @@ var availableCommands = Commands{
 	InitCmd:       HandlerInit,
 	CatFileCmd:    HandlerCatFile,
 	HashObjectCmd: HandlerHashObject,
+	LsTreeCmd:     HandlerListTree,
 }
 
 func GetCommand(cmd string) (Handler, error) {
@@ -121,5 +123,40 @@ func HandlerHashObject(name string, args []string) error {
 	}
 	fmt.Printf("%x\n", hash)
 
+	return nil
+}
+
+func HandlerListTree(name string, args []string) error {
+	if name != LsTreeCmd {
+		return MismatchedError
+	}
+
+	if l := len(args); l < 1 || l > 2 {
+		return InvalidArgsError
+	}
+
+	sha, onlyName := args[0], false
+	if len(args) == 2 {
+		if args[0] == "--name-only" {
+			sha, onlyName = args[1], true
+		} else if args[1] == "--name-only" {
+			sha, onlyName = args[0], true
+		} else {
+			return InvalidArgsError
+		}
+	}
+
+	gitObj, err := ReadGitObject(sha)
+	if err != nil {
+		return err
+	}
+
+	tree, ok := gitObj.(*Tree)
+	if !ok {
+		return InvalidTree
+	}
+
+	fmt.Printf("%s", tree.Format(onlyName))
+ 
 	return nil
 }
