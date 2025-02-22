@@ -68,17 +68,20 @@ func HashObject(gitObj GitObject) ([20]byte, []byte) {
 	return sha1.Sum(obj), obj
 }
 
-func WriteContent(objPath string, content []byte) error {
+func WriteContent(gitObj GitObject) (nilSha [20]byte, _ error) {
+	hash, content := HashObject(gitObj)
+	objPath := fmt.Sprintf("%x", hash)
+
 	dir, signature := objPath[:2], objPath[2:]
 	objPath = path.Join(".git/objects", dir)
 	if err := os.Mkdir(objPath, 0o755); err != nil && !os.IsExist(err) {
-		return err
+		return nilSha, err
 	}
 
 	objPath = path.Join(objPath, signature)
 	file, err := os.OpenFile(objPath, os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
-		return err
+		return nilSha, err
 	}
 	defer file.Close()
 
@@ -87,7 +90,7 @@ func WriteContent(objPath string, content []byte) error {
 
 	_, err = compressed.Write(content)
 	if err != nil {
-		return err
+		return nilSha, err
 	}
-	return nil
+	return hash, nil
 }

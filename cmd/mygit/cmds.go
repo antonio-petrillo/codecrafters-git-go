@@ -109,15 +109,17 @@ func HandlerHashObject(name string, args []string) error {
 		return err
 	}
 
-	hash, content := HashObject(blob)
-	strHash := fmt.Sprintf("%x", hash)
+	var hash [20]byte
+
 	if writeToFile {
-		err = WriteContent(strHash, content)
+		hash, err = WriteContent(blob)
 		if err != nil {
 			return err
 		}
+	} else {
+		hash, _ = HashObject(blob)
 	}
-	fmt.Printf("%s\n", strHash)
+	fmt.Printf("%x\n", hash)
 
 	return nil
 }
