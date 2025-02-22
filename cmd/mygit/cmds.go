@@ -11,6 +11,7 @@ const (
 	CatFileCmd    = "cat-file"
 	HashObjectCmd = "hash-object"
 	LsTreeCmd     = "ls-tree"
+	WriteTreeCmd  = "write-tree"
 )
 
 type Handler func(name string, args []string) error
@@ -27,6 +28,7 @@ var availableCommands = Commands{
 	CatFileCmd:    HandlerCatFile,
 	HashObjectCmd: HandlerHashObject,
 	LsTreeCmd:     HandlerListTree,
+	WriteTreeCmd:  HandlerWriteTree,
 }
 
 func GetCommand(cmd string) (Handler, error) {
@@ -157,6 +159,30 @@ func HandlerListTree(name string, args []string) error {
 	}
 
 	fmt.Printf("%s", tree.Format(onlyName))
- 
+
+	return nil
+}
+
+func HandlerWriteTree(name string, args []string) error {
+	if name != WriteTreeCmd {
+		return MismatchedError
+	}
+
+	if len(args) != 0 {
+		return InvalidArgsError
+	}
+
+	curDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	_, sha, err := BuildTreeFromDir(curDir)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%x\n", sha)
+
 	return nil
 }

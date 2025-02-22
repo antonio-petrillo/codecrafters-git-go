@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
-	"fmt"
-	"strings"
 	"errors"
+	"fmt"
+	"os"
+	"path"
+	"strings"
 )
 
 var (
@@ -91,3 +93,49 @@ func (t *Tree) Format(onlyName bool) string {
 func (t *Tree) String() string {
 	return t.Format(false)
 }
+
+func BuildTreeFromDir(dir string) (_ *Tree, nilSha [20]byte, _ error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, nilSha, err
+	}
+
+	content := bytes.Buffer{}
+	for _, entry := range entries {
+		if entry.Name() == ".git" {
+			continue
+		}
+		var gitObj GitObject
+		var sha [20]byte
+
+		next := path.Join(dir, entry.Name())
+		if entry.IsDir() { // tree
+			content.WriteString("40000 ")
+			gitObj, _, err = BuildTreeFromDir(next)
+		} else {// obj
+			content.WriteString("100644 ")
+			gitObj, err = ReadBlobFromFile(next)
+		}
+		if err != nil {
+			return nil, nilSha, err
+		}
+		sha, err = WriteContent(gitObj)
+		if err != nil {
+			return nil, nilSha, err
+		}
+
+		content.WriteString(entry.Name())
+		content.WriteByte(0)
+		content.Write(sha[:])
+	} 
+
+	tree := &Tree{
+		content: content.Bytes(),
+	}
+	sha, err := WriteContent(tree)
+	if err != nil {
+		return nil, nilSha, err
+	}
+
+	return tree, sha, nil
+} 
