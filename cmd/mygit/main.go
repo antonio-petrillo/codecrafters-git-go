@@ -5,7 +5,12 @@ import (
 	"os"
 )
 
-
+func failOnErr(cmd string, err error) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error for %s: %v\n", cmd, err)
+		os.Exit(1)
+	}
+}
 
 func main() {
 
@@ -15,10 +20,9 @@ func main() {
 	}
 
 	command, args := os.Args[1], os.Args[2:]
-	handler, ok := AvailableCommands[command]
-	if !ok {
-		fmt.Fprintf(os.Stderr, "Unknow command %q", command)
-		os.Exit(1)
-	}
-	handler(command, args)
+	handler, err := GetCommand(command)
+
+	failOnErr(command, err)
+
+	failOnErr(command, handler(command, args))
 }
