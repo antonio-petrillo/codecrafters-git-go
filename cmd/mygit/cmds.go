@@ -1,9 +1,16 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha1"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
+	"path"
+	"strconv"
 	"time"
 )
 
@@ -21,9 +28,11 @@ type Handler func(name string, args []string) error
 type Commands map[string]Handler
 
 var (
-	CommandNotFoundError = errors.New("Command not found")
-	MismatchedError      = errors.New("Mismatched command")
-	InvalidArgsError     = errors.New("Invalid arguments")
+	CommandNotFoundError    = errors.New("Command not found")
+	MismatchedError         = errors.New("Mismatched command")
+	InvalidArgsError        = errors.New("Invalid arguments")
+	MismatchedChecksumError = errors.New("Packfile checksum doesn't mach")
+	InvalidPackError        = errors.New("Invalid Packfile")
 )
 
 var availableCommands = Commands{
@@ -54,13 +63,13 @@ func HandlerInit(name string, args []string) error {
 	}
 
 	for _, dir := range []string{".git", ".git/objects", ".git/refs"} {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating directory: %s\n", err)
 		}
 	}
 
 	headFileContents := []byte("ref: refs/heads/main\n")
-	if err := os.WriteFile(".git/HEAD", headFileContents, 0644); err != nil {
+	if err := os.WriteFile(".git/HEAD", headFileContents, 0o644); err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing file: %s\n", err)
 	}
 	fmt.Println("Initialized git directory")
@@ -235,14 +244,97 @@ func HandlerCommitTree(name string, args []string) error {
 	return nil
 }
 
-
 func HandlerCloneTree(name string, args []string) error {
 	if name != CloneCmd {
 		return MismatchedError
 	}
 
-	if len(args) < 1 {
+	if len(args) != 2 {
 		return InvalidArgsError
+	}
+
+	repo, dir := args[0], args[1]
+
+	curDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	if !path.IsAbs(dir) {
+		dir = path.Join(curDir, dir)
+	}
+
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		return err
+	}
+
+	// switch to directory
+	if err := os.Chdir(dir); err != nil {
+		return err
+	}
+
+	// init repo
+	HandlerInit(InitCmd, nil)
+
+	// clone repo
+	if err := clonePlumbing(repo); err != nil {
+		return err
+	}
+
+	// go to prev directory
+	if err := os.Chdir(curDir); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func clonePlumbing(url string) error {
+	// get last commit from main refs
+	hash, err := GetGitUploadPack(url)
+	if err != nil {
+		return err
+	}
+
+	// create .git/refs/heads/main file containing the hash of the last commit
+	refPath := ".git/refs/heads"
+	err = os.MkdirAll(refPath, 0o755)
+	if err != nil {
+		return err
+	}
+	file, err := os.OpenFile(path.Join(refPath, "main"), os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	file.Write(hash)
+
+	// ask git to obtain the packfile for the specified commit
+	pack, err := PostGitUploadPack(url, hash)
+	if err != nil {
+		return err
+	}
+
+	// check if packfile is valid (start with pack, is version 2 and the checksum matches)
+	sign := pack[:4]
+	version := binary.BigEndian.Uint32(pack[4:8])
+	num := binary.BigEndian.Uint32(pack[8:12]) // num of objects
+
+	if !bytes.Equal(sign, []byte("PACK")) || version != 2 {
+		return InvalidPackError
+	}
+
+	packChecksum := pack[len(pack)-20:]
+	pack = pack[12:len(pack)-20] // discard header and chec
+	actualChecksum := sha1.Sum(pack)
+
+	if !bytes.Equal(packChecksum, actualChecksum[:]) {
+		return MismatchedChecksumError
+	}
+
+	err = UnpackPackfile(pack, num)
+	if err != nil {
+		return err
 	}
 
 	return nil

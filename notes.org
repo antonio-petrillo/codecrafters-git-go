@@ -1,0 +1,89 @@
+* Clone
+** Step 1
+request 
+
+#+begin_export ascii
+11:14:20.398549 http.c:837              => Send header: GET /antonio-petrillo/.emacs.d/info/refs?service=git-upload-pack HTTP/2
+11:14:20.398553 http.c:837              => Send header: Host: github.com
+11:14:20.398557 http.c:837              => Send header: User-Agent: git/2.48.1
+11:14:20.398561 http.c:837              => Send header: Accept: */*
+11:14:20.398565 http.c:837              => Send header: Accept-Encoding: deflate, gzip
+11:14:20.398569 http.c:837              => Send header: Accept-Language: en-US, *;q=0.9
+11:14:20.398573 http.c:837              => Send header: Pragma: no-cache
+11:14:20.398577 http.c:837              => Send header: Git-Protocol: version=2
+#+end_export
+
+response
+#+begin_export ascii
+11:14:20.567749 http.c:837              <= Recv header: HTTP/2 200
+11:14:20.567780 http.c:837              <= Recv header: server: GitHub-Babel/3.0
+11:14:20.567808 http.c:837              <= Recv header: content-type: application/x-git-upload-pack-advertisement
+11:14:20.567832 http.c:837              <= Recv header: content-security-policy: default-src 'none'; sandbox
+11:14:20.567855 http.c:837              <= Recv header: expires: Fri, 01 Jan 1980 00:00:00 GMT
+11:14:20.567877 http.c:837              <= Recv header: pragma: no-cache
+11:14:20.567900 http.c:837              <= Recv header: cache-control: no-cache, max-age=0, must-revalidate
+11:14:20.567922 http.c:837              <= Recv header: vary: Accept-Encoding
+11:14:20.567944 http.c:837              <= Recv header: date: Sun, 23 Feb 2025 10:14:19 GMT
+11:14:20.567966 http.c:837              <= Recv header: x-frame-options: DENY
+11:14:20.567990 http.c:837              <= Recv header: strict-transport-security: max-age=31536000; includeSubDomains; preload
+11:14:20.568050 http.c:837              <= Recv header: x-github-request-id: B93E:97EA4:3BC58FA:3E35055:67BAF4FC
+11:14:20.568075 http.c:837              <= Recv header:
+11:14:20.568100 http.c:866              <= Recv data: 001e# service=git-upload-pack.0000000eversion 2.0022agent=gi
+11:14:20.568110 http.c:866              <= Recv data: t/github-d6c9584635a2.0013ls-refs=unborn.0027fetch=shallow w
+11:14:20.568120 http.c:866              <= Recv data: ait-for-done filter.0012server-option.0017object-format=sha1
+#+end_export
+
+request 
+#+begin_export ascii
+11:14:20.568755 http.c:837              => Send header: POST /antonio-petrillo/.emacs.d/git-upload-pack HTTP/2
+11:14:20.568759 http.c:837              => Send header: Host: github.com
+11:14:20.568763 http.c:837              => Send header: User-Agent: git/2.48.1
+11:14:20.568767 http.c:837              => Send header: Accept-Encoding: deflate, gzip
+11:14:20.568771 http.c:837              => Send header: Content-Type: application/x-git-upload-pack-request
+11:14:20.568775 http.c:837              => Send header: Accept: application/x-git-upload-pack-result
+11:14:20.568779 http.c:837              => Send header: Accept-Language: en-US, *;q=0.9
+11:14:20.568783 http.c:837              => Send header: Git-Protocol: version=2
+11:14:20.568787 http.c:837              => Send header: Content-Length: 175
+11:14:20.568791 http.c:837              => Send header:
+11:14:20.568800 http.c:866              => Send data: 0014command=ls-refs.0014agent=git/2.48.10016object-format=sh
+11:14:20.568804 http.c:866              => Send data: a100010009peel.000csymrefs.000bunborn.0014ref-prefix HEAD.00
+11:14:20.568816 http.c:866              => Send data: 1bref-prefix refs/heads/.001aref-prefix refs/tags/.0000
+#+end_export
+
+response
+#+begin_export ascii
+11:14:20.784041 http.c:837              <= Recv header: HTTP/2 200
+11:14:20.784073 http.c:837              <= Recv header: server: GitHub-Babel/3.0
+11:14:20.784097 http.c:837              <= Recv header: content-type: application/x-git-upload-pack-result
+11:14:20.784120 http.c:837              <= Recv header: content-security-policy: default-src 'none'; sandbox
+11:14:20.784141 http.c:837              <= Recv header: expires: Fri, 01 Jan 1980 00:00:00 GMT
+11:14:20.784162 http.c:837              <= Recv header: pragma: no-cache
+11:14:20.784183 http.c:837              <= Recv header: cache-control: no-cache, max-age=0, must-revalidate
+11:14:20.784204 http.c:837              <= Recv header: vary: Accept-Encoding
+11:14:20.784225 http.c:837              <= Recv header: date: Sun, 23 Feb 2025 10:14:20 GMT
+11:14:20.784246 http.c:837              <= Recv header: x-frame-options: DENY
+11:14:20.784300 http.c:837              <= Recv header: strict-transport-security: max-age=31536000; includeSubDomains; preload
+11:14:20.784321 http.c:837              <= Recv header: x-github-request-id: B93E:97EA4:3BC59AC:3E3511B:67BAF4FC
+11:14:20.784465 http.c:837              <= Recv header:
+11:14:20.784477 http.c:866              <= Recv data: 00503475eadb75755689b4c96875002d83576a8d802d HEAD symref-tar
+11:14:20.784485 http.c:866              <= Recv data: get:refs/heads/main.003d3475eadb75755689b4c96875002d83576a8d
+11:14:20.784490 http.c:866              <= Recv data: 802d refs/heads/main.0000
+#+end_export
+
+request
+#+begin_export ascii
+11:14:20.785720 http.c:837              => Send header: POST /antonio-petrillo/.emacs.d/git-upload-pack HTTP/2
+11:14:20.785724 http.c:837              => Send header: Host: github.com
+11:14:20.785728 http.c:837              => Send header: User-Agent: git/2.48.1
+11:14:20.785732 http.c:837              => Send header: Accept-Encoding: deflate, gzip
+11:14:20.785736 http.c:837              => Send header: Content-Type: application/x-git-upload-pack-request
+11:14:20.785740 http.c:837              => Send header: Accept: application/x-git-upload-pack-result
+11:14:20.785744 http.c:837              => Send header: Accept-Language: en-US, *;q=0.9
+11:14:20.785748 http.c:837              => Send header: Git-Protocol: version=2
+11:14:20.785752 http.c:837              => Send header: Content-Length: 217
+11:14:20.785756 http.c:837              => Send header:
+11:14:20.785765 http.c:866              => Send data: 0011command=fetch0014agent=git/2.48.10016object-format=sha10
+11:14:20.785769 http.c:866              => Send data: 001000dthin-pack000fno-progress000dofs-delta0032want 3475ead
+11:14:20.785773 http.c:866              => Send data: b75755689b4c96875002d83576a8d802d.0032want 3475eadb75755689b
+11:14:20.785777 http.c:866              => Send data: 4c96875002d83576a8d802d.0009done.0000
+#+end_export
