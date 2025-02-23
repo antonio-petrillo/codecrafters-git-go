@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"strings"
@@ -36,10 +37,14 @@ func (t *Tree) Content() []byte {
 }
 
 func toType(mode []byte) (string, ObjectKind) {
-	if bytes.HasPrefix(mode, []byte("40000")) {
+	if bytes.HasPrefix(mode, []byte("40000")) { // directory
 		return "040000", TreeKind
-	} else if bytes.HasPrefix(mode, []byte("100644")) {
+	} else if bytes.HasPrefix(mode, []byte("100644")) { // regular file
 		return "100644", BlobKind
+	} else if bytes.HasPrefix(mode, []byte("100755")) { // executable
+		return "100755", BlobKind
+	} else if bytes.HasPrefix(mode, []byte("120000")) { // link
+		return "120000", BlobKind
 	} else {
 		return "", ""
 	}
@@ -113,7 +118,26 @@ func BuildTreeFromDir(dir string) (_ *Tree, nilSha [20]byte, _ error) {
 			content.WriteString("40000 ")
 			gitObj, _, err = BuildTreeFromDir(next)
 		} else {// obj
-			content.WriteString("100644 ")
+			info, err := entry.Info()
+			if err != nil {
+				return nil, nilSha, err
+			}
+			
+			mode := info.Mode()
+			perms := mode.Perm()
+
+			filetype := ""
+			if perms & 0o111 != 0 {// --x--x--x // executable
+				filetype = "100755 "
+			} else if info.Mode().IsRegular() { // regular file
+				filetype = "100644 "
+			} else if mode & fs.ModeSymlink != 0  { // symlink
+				filetype = "120000 "
+			} else { // unknown
+				return nil, nilSha, InvalidBlob
+			}
+
+			content.WriteString(filetype)
 			gitObj, err = ReadBlobFromFile(next)
 		}
 		if err != nil {

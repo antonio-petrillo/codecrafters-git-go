@@ -14,6 +14,7 @@ const (
 	LsTreeCmd     = "ls-tree"
 	WriteTreeCmd  = "write-tree"
 	CommitTreeCmd = "commit-tree"
+	CloneCmd      = "clone"
 )
 
 type Handler func(name string, args []string) error
@@ -32,6 +33,7 @@ var availableCommands = Commands{
 	LsTreeCmd:     HandlerListTree,
 	WriteTreeCmd:  HandlerWriteTree,
 	CommitTreeCmd: HandlerCommitTree,
+	CloneCmd:      HandlerCloneTree,
 }
 
 func GetCommand(cmd string) (Handler, error) {
@@ -229,6 +231,19 @@ func HandlerCommitTree(name string, args []string) error {
 	}
 
 	fmt.Printf("%x\n", sha)
+
+	return nil
+}
+
+
+func HandlerCloneTree(name string, args []string) error {
+	if name != CloneCmd {
+		return MismatchedError
+	}
+
+	if len(args) < 1 {
+		return InvalidArgsError
+	}
 
 	return nil
 }
