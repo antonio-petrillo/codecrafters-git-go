@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 )
 
 const (
@@ -12,6 +13,7 @@ const (
 	HashObjectCmd = "hash-object"
 	LsTreeCmd     = "ls-tree"
 	WriteTreeCmd  = "write-tree"
+	CommitTreeCmd = "commit-tree"
 )
 
 type Handler func(name string, args []string) error
@@ -29,6 +31,7 @@ var availableCommands = Commands{
 	HashObjectCmd: HandlerHashObject,
 	LsTreeCmd:     HandlerListTree,
 	WriteTreeCmd:  HandlerWriteTree,
+	CommitTreeCmd: HandlerCommitTree,
 }
 
 func GetCommand(cmd string) (Handler, error) {
@@ -178,6 +181,49 @@ func HandlerWriteTree(name string, args []string) error {
 	}
 
 	_, sha, err := BuildTreeFromDir(curDir)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%x\n", sha)
+
+	return nil
+}
+
+func detectParam(args []string, target string) *string {
+	size := len(args)
+	for i, arg := range args {
+		if arg == target && i != size-1 {
+			return &args[i+1]
+		}
+	}
+	return nil
+}
+
+func HandlerCommitTree(name string, args []string) error {
+	if name != CommitTreeCmd {
+		return MismatchedError
+	}
+
+	if len(args) < 1 {
+		return InvalidArgsError
+	}
+
+	tree := args[0]
+	args = args[1:]
+	parent := detectParam(args, "-p")
+	msg := detectParam(args, "-m")
+
+	commit := &Commit{
+		timestamp: time.Now().Local(),
+		parent:    parent,
+		tree:      tree,
+		author:    "Antonio Petrillo",
+		email:     "Antonio Petrillo",
+		message:   msg,
+	}
+
+	sha, err := WriteContent(commit)
 	if err != nil {
 		return err
 	}

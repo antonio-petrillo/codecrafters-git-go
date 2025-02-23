@@ -14,8 +14,9 @@ import (
 type ObjectKind string
 
 const (
-	BlobKind ObjectKind = "blob"
-	TreeKind ObjectKind = "tree"
+	BlobKind   ObjectKind = "blob"
+	TreeKind   ObjectKind = "tree"
+	CommitKind ObjectKind = "commit"
 )
 
 var (
