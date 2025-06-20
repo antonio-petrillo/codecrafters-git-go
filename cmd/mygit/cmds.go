@@ -1,16 +1,10 @@
 package main
 
 import (
-	"bytes"
-	"crypto/sha1"
-	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path"
-	"strconv"
 	"time"
 )
 
@@ -42,7 +36,7 @@ var availableCommands = Commands{
 	LsTreeCmd:     HandlerListTree,
 	WriteTreeCmd:  HandlerWriteTree,
 	CommitTreeCmd: HandlerCommitTree,
-	CloneCmd:      HandlerCloneTree,
+	CloneCmd:      HandlerClone,
 }
 
 func GetCommand(cmd string) (Handler, error) {
@@ -244,7 +238,7 @@ func HandlerCommitTree(name string, args []string) error {
 	return nil
 }
 
-func HandlerCloneTree(name string, args []string) error {
+func HandlerClone(name string, args []string) error {
 	if name != CloneCmd {
 		return MismatchedError
 	}
@@ -274,7 +268,9 @@ func HandlerCloneTree(name string, args []string) error {
 	}
 
 	// init repo
-	HandlerInit(InitCmd, nil)
+	if err := HandlerInit(InitCmd, nil); err != nil {
+		return err
+	}
 
 	// clone repo
 	if err := clonePlumbing(repo); err != nil {
@@ -291,11 +287,10 @@ func HandlerCloneTree(name string, args []string) error {
 
 func clonePlumbing(url string) error {
 	// get last commit from main refs
-	hash, err := GetGitUploadPack(url)
+	hash, err := GetLastHash(url)
 	if err != nil {
 		return err
 	}
-
 	// create .git/refs/heads/main file containing the hash of the last commit
 	refPath := ".git/refs/heads"
 	err = os.MkdirAll(refPath, 0o755)
@@ -307,35 +302,17 @@ func clonePlumbing(url string) error {
 		return err
 	}
 	defer file.Close()
-	file.Write(hash)
+	if _, err = file.Write(hash); err != nil {
+		return err
+	}
+
+	d, err := UploadPack(url, hash)
+	if err != nil {
+		return err
+	}
+	_ = d
 
 	// ask git to obtain the packfile for the specified commit
-	pack, err := PostGitUploadPack(url, hash)
-	if err != nil {
-		return err
-	}
-
-	// check if packfile is valid (start with pack, is version 2 and the checksum matches)
-	sign := pack[:4]
-	version := binary.BigEndian.Uint32(pack[4:8])
-	num := binary.BigEndian.Uint32(pack[8:12]) // num of objects
-
-	if !bytes.Equal(sign, []byte("PACK")) || version != 2 {
-		return InvalidPackError
-	}
-
-	packChecksum := pack[len(pack)-20:]
-	pack = pack[12:len(pack)-20] // discard header and chec
-	actualChecksum := sha1.Sum(pack)
-
-	if !bytes.Equal(packChecksum, actualChecksum[:]) {
-		return MismatchedChecksumError
-	}
-
-	err = UnpackPackfile(pack, num)
-	if err != nil {
-		return err
-	}
 
 	return nil
 }
