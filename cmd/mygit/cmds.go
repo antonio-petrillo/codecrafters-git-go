@@ -317,7 +317,12 @@ func clonePlumbing(url string) error {
 		return fmt.Errorf("Mismatched hashes, want '%x' got '%x'", data[len(data)-20:], checksum)
 	}
 
-	objs, err := ParseObjects(data)
+	err = ParseObjects(data[:len(data)-20])
+	if err != nil {
+		return err
+	}
+
+	err = Checkout(string(hash))
 	if err != nil {
 		return err
 	}

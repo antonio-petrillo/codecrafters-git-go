@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path"
 	"strconv"
 )
 
@@ -112,71 +114,66 @@ func UploadPack(url string, hash []byte) ([]byte, error) {
 }
 
 // https://codewords.recurse.com/issues/three/unpacking-git-packfiles
-func ParseObjects(raw []byte) ([]GitObject, error) {
-	objs := []GitObject{}
+func ParseObjects(raw []byte) error {
 	if len(raw) < 12 {
-		return nil, fmt.Errorf("Pack file has incomplete header: expected len of at least 12, got %d", len(raw))
+		return fmt.Errorf("Pack file has incomplete header: expected len of at least 12, got %d", len(raw))
 	}
 
 	if !bytes.Equal([]byte{'P', 'A', 'C', 'K'}, raw[:4]) {
-		return nil, fmt.Errorf("Expected magic number 'PACK' got %x", raw[:4])
+		return fmt.Errorf("Expected magic number 'PACK' got %x", raw[:4])
 	}
 	count := binary.BigEndian.Uint32(raw[8:12])
 	reader := bytes.NewReader(raw[12:])
-
-	store := make(map[[20]byte]GitObject)
-
 	for range count {
-		obj, err := ParseObject(reader, store)
+		err := ParseObject(reader)
 		if err != nil {
-			return objs, err
+			return err
 		}
-		objs = append(objs, obj)
 	}
-	return objs, nil
+	return nil
 }
 
 // https://codewords.recurse.com/issues/three/unpacking-git-packfiles
-func ParseObject(r *bytes.Reader, store map[[20]byte]GitObject) (GitObject, error) {
+func ParseObject(r *bytes.Reader) error {
 	kind, size, err := parseObjectHeader(r)
-	_ = size
 	if err != nil {
-		return nil, err
+		return err
 	}
 	switch kind {
 	case tag:
-		return nil, fmt.Errorf("Unsupported git object for now [TAG]")
+		return fmt.Errorf("Unsupported git object for now [TAG]")
 	case ofsDelta:
-		return nil, fmt.Errorf("Unsupported git object for now [OFS_DELTA]")
+		return fmt.Errorf("Unsupported git object for now [OFS_DELTA]")
 	case refDelta:
-		return parseRefDelta(r, store, size)
+		obj, err := parseRefDelta(r, size)
+		if err != nil {
+			return err
+		}
+		_, err = WriteContent(obj)
+		return err
 
 	default:
-		data, err := decompress(r)
+		data, err := decompress(r, size)
 		if err != nil {
-			return nil, err
+			return nil
 		}
 		var obj GitObject
 		switch kind {
 		case blob:
-			obj = &Blob{content: data}
+			obj = &Blob{content: data.Bytes()}
 		case tree:
-			obj = &Tree{content: data}
+			obj = &Tree{content: data.Bytes()}
 		case commit:
-			obj = &CommitAsBytes{content: data}
+			obj = &CommitAsBytes{content: data.Bytes()}
 		default:
 			panic("unexpected object kind")
 		}
-		hash, _ := HashObject(obj)
-		if _, ok := store[hash]; ok {
-			return nil, fmt.Errorf("Duplicated obj sha %x", hash[:])
-		}
-		store[hash] = obj
-		return obj, nil
+		_, err = WriteContent(obj)
+		return err
 	}
 }
 
-func parseRefDelta(r *bytes.Reader, store map[[20]byte]GitObject, size uint64) (GitObject, error) {
+func parseRefDelta(r *bytes.Reader, size int64) (GitObject, error) {
 	var sha [20]byte
 	n, err := r.Read(sha[:])
 	if err != nil {
@@ -185,47 +182,72 @@ func parseRefDelta(r *bytes.Reader, store map[[20]byte]GitObject, size uint64) (
 	if n != 20 {
 		return nil, fmt.Errorf("Unvalid git sha in [REF_DELTA]")
 	}
-	baseObj, ok := store[sha]
-	if !ok {
-		return nil, fmt.Errorf("Invalid base obj in [REF_DELTA]")
-	}
-	data, err := decompress(r)
+	baseObj, err := ReadGitObject(fmt.Sprintf("%x", sha))
 	if err != nil {
 		return nil, err
 	}
 
-	srcSize, err := parseSizeHeader(r)
+	data, err := decompress(r, size)
 	if err != nil {
 		return nil, err
 	}
-	if srcSize != uint32(len(baseObj.Content())) {
+
+	srcSize, err := binary.ReadUvarint(data)
+	if err != nil {
+		return nil, err
+	}
+	if srcSize != uint64(len(baseObj.Content())) {
 		return nil, fmt.Errorf("Expected base object to have size %d, got %d", srcSize, uint32(len(baseObj.Content())))
+	}
+	dstSize, err := binary.ReadUvarint(data)
+	if err != nil {
+		return nil, err
 	}
 
 	buf := &bytes.Buffer{}
-	for _, b := range data {
+	for {
+		b, err := data.ReadByte()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		// read offset
 		if b&0x80 != 0 { // COPY
+			offset, size := 0, 0
+			for i := range 4 {
+				if b&(1<<i) != 0 {
+					b_, err := data.ReadByte()
+					if err != nil {
+						return nil, err
+					}
+					offset |= int(b_) << (i * 8)
+				}
+			}
+
+			for i := range 3 {
+				if b&(0x10<<i) != 0 {
+					b_, err := data.ReadByte()
+					if err != nil {
+						return nil, err
+					}
+					size |= int(b_) << (i * 8)
+				}
+			}
+			buf.Write(baseObj.Content()[offset : offset+size])
 
 		} else { // ADD
-			numBytes := b & 0x7f
-			buf_ := make([]byte, numBytes)
-			n, err := r.Read(buf_)
+			_, err = io.CopyN(buf, data, int64(b&0x7f))
 			if err != nil {
 				return nil, err
 			}
-			if n != int(numBytes) {
-				return nil, fmt.Errorf("ADD command required %d bytes, readed only %d\n", numBytes, n)
-			}
-			buf.Write(buf_)
 		}
+
 	}
 
-	dstSize, err := parseSizeHeader(r)
-	if err != nil {
-		return nil, err
-	}
-
-	if dstSize != uint32(buf.Len()) {
+	if dstSize != uint64(buf.Len()) {
 		return nil, fmt.Errorf("Expected final object to have size %d, got %d", dstSize, buf.Len())
 	}
 
@@ -240,59 +262,28 @@ func parseRefDelta(r *bytes.Reader, store map[[20]byte]GitObject, size uint64) (
 	default:
 		panic("Unknown obj type switch")
 	}
-	hash, _ := HashObject(obj)
-	if _, ok := store[hash]; ok {
-		return nil, fmt.Errorf("Duplicate obj hash [REF_DELTA]")
-	}
-	store[hash] = obj
-
-	return obj, nil
+	return obj, err
 }
 
-func parseSizeHeader(r io.ByteReader) (uint32, error) {
-	b, err := r.ReadByte()
-	if err != nil {
-		return 0, err
-	}
-
-	size := uint32(b & 0x7f)
-	if b&0x80 == 0 {
-		return size, nil
-	}
-	shift := 7
-	for b, err = r.ReadByte(); err != nil; b, err = r.ReadByte() {
-		size |= uint32(b&0x7f) << shift
-		shift += 7
-		if b&0x80 == 0 {
-			break
-		}
-	}
-	if err != nil {
-		return 0, nil
-	}
-
-	return size, nil
-}
-
-func decompress(r io.Reader) ([]byte, error) {
+func decompress(r io.Reader, size int64) (*bytes.Buffer, error) {
 	zReader, err := zlib.NewReader(r)
 	if err != nil {
 		return nil, err
 	}
 	defer zReader.Close()
 	buf := &bytes.Buffer{}
-	if _, err = io.Copy(buf, zReader); err != nil {
+	if _, err = io.CopyN(buf, zReader, size); err != nil {
 		return nil, err
 	}
-	return buf.Bytes(), nil
+	return buf, nil
 }
 
-func parseObjectHeader(r io.ByteReader) (packFileKind, uint64, error) {
+func parseObjectHeader(r io.ByteReader) (packFileKind, int64, error) {
 	b, err := r.ReadByte()
 	if err != nil {
 		return 0, 0, err
 	}
-	kind, size := (b&0x70)>>4, uint64(b&0x0F)
+	kind, size := (b&0x70)>>4, int64(b&0x0F)
 	if kind == 0 || kind == 5 {
 		return 0, 0, fmt.Errorf("Invalid obj type, got '%d'", kind)
 	}
@@ -300,17 +291,67 @@ func parseObjectHeader(r io.ByteReader) (packFileKind, uint64, error) {
 		return packFileKind(kind), size, nil
 	}
 	shift := 4
-	for b, err = r.ReadByte(); err != nil; b, err = r.ReadByte() {
-		// instruction unclear: should I keep the last msb or not?
-		size |= uint64(b&0x7f) << shift
-		shift += 7
-		if b&0x80 == 0 {
+	for i := 0; ; i++ {
+		b_, err := r.ReadByte()
+		if err != nil {
+			return 0, 0, err
+		}
+		size |= int64(b_&0x7f) << shift
+		if b_&0x80 == 0 {
 			break
 		}
+		shift += 7
 	}
+	return packFileKind(kind), size, err
+}
+
+func Checkout(hash string) error {
+	obj, err := ReadGitObject(hash)
 	if err != nil {
-		return 0, 0, err
+		return err
+	}
+	data := obj.Content()
+	hash = string(data[bytes.IndexByte(data, '\x00')+6 : bytes.IndexByte(data, '\x0a')])
+
+	return ParseTreeFromHash(".", hash)
+}
+
+func ParseTreeFromHash(basepath, hash string) error {
+	obj, err := ReadGitObject(hash)
+	if err != nil {
+		return err
+	}
+	data := obj.Content()
+	for len(data) > 0 {
+		_, kind := toType(data[:6])
+		data = data[6:] // skip mode
+		idx := bytes.Index(data, []byte{'\x00'})
+		filename := path.Join(basepath, string(data[:idx]))
+		data = data[idx+1:]
+		fileHash := fmt.Sprintf("%x", data[:20])
+		data = data[20:]
+		switch kind {
+		case TreeKind:
+			if err = os.Mkdir(filename, 0o755); err != nil && !os.IsExist(err) {
+				return err
+			}
+			if err = ParseTreeFromHash(filename, fileHash); err != nil {
+				return err
+			}
+		case BlobKind:
+			blob, err := ReadGitObject(fileHash)
+			if err != nil {
+				return err
+			}
+			blobData := blob.Content()
+			if err = os.WriteFile(filename, blobData[:len(blobData)-1], 0o644); err != nil {
+				return err
+			}
+		default:
+			fmt.Printf("Unknown %s\n", kind)
+			panic("unsupported for now")
+		}
 	}
 
-	return packFileKind(kind), size, nil
+	return nil
 }

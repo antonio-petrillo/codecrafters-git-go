@@ -66,6 +66,12 @@ func ReadGitObject(sha string) (GitObject, error) {
 		}, nil
 	}
 
+	if bytes.HasPrefix(header, []byte(CommitKind)) {
+		return &CommitAsBytes{
+			content: body,
+		}, nil
+	}
+
 	return nil, InvalidObject
 }
 
