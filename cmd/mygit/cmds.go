@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha1"
 	"errors"
 	"fmt"
 	"os"
@@ -306,13 +308,19 @@ func clonePlumbing(url string) error {
 		return err
 	}
 
-	d, err := UploadPack(url, hash)
+	data, err := UploadPack(url, hash)
 	if err != nil {
 		return err
 	}
-	_ = d
+	checksum := sha1.Sum(data[:len(data)-20])
+	if !bytes.Equal(checksum[:], data[len(data)-20:]) {
+		return fmt.Errorf("Mismatched hashes, want '%x' got '%x'", data[len(data)-20:], checksum)
+	}
 
-	// ask git to obtain the packfile for the specified commit
+	objs, err := ParseObjects(data)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

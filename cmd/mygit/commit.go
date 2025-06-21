@@ -12,6 +12,23 @@ var (
 	InvalidCommit = errors.New("File at path cannot be parsed into a commit.")
 )
 
+// reaylly bad hack just for the clone cmd
+type CommitAsBytes struct {
+	content []byte
+}
+
+func (c *CommitAsBytes) Kind() ObjectKind {
+	return CommitKind
+}
+
+func (c *CommitAsBytes) Content() []byte {
+	return c.content
+}
+
+func (c *CommitAsBytes) String() string {
+	return ""
+}
+
 type Commit struct {
 	timestamp time.Time
 	parent    *string
