@@ -284,9 +284,9 @@ func parseObjectHeader(r io.ByteReader) (packFileKind, int64, error) {
 		return 0, 0, err
 	}
 	kind, size := (b&0x70)>>4, int64(b&0x0F)
-	if kind == 0 || kind == 5 {
-		return 0, 0, fmt.Errorf("Invalid obj type, got '%d'", kind)
-	}
+	// if kind == 0 || kind == 5 {
+	// 	return 0, 0, fmt.Errorf("Invalid obj type, got '%d'", kind)
+	// }
 	if b&0x80 == 0 {
 		return packFileKind(kind), size, nil
 	}
