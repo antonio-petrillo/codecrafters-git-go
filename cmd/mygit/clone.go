@@ -348,7 +348,7 @@ func ParseTreeFromHash(basepath, hash string) error {
 				return err
 			}
 			blobData := blob.Content()
-			if err = os.WriteFile(filename, blobData[:len(blobData)-1], 0o644); err != nil {
+			if err = os.WriteFile(filename, blobData[:len(blobData)], 0o644); err != nil {
 				return err
 			}
 		default:
