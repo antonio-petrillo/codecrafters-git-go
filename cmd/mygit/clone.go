@@ -324,7 +324,11 @@ func ParseTreeFromHash(basepath, hash string) error {
 	data := obj.Content()
 	for len(data) > 0 {
 		_, kind := toType(data[:6])
-		data = data[6:] // skip mode
+		if kind == BlobKind {
+			data = data[7:] // skip mode
+		} else {
+			data = data[6:] // skip mode
+		}
 		idx := bytes.Index(data, []byte{'\x00'})
 		filename := path.Join(basepath, string(data[:idx]))
 		data = data[idx+1:]
